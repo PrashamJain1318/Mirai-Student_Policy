@@ -1,0 +1,31 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Vector Store data (persisted locally, rebuildable via /ingest)
+data/chroma_db/
+data/chroma_db/*
+!data/chroma_db/.gitkeep
+
+# Operating System files
+.DS_Store
+Thumbs.db

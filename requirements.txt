@@ -1,0 +1,2 @@
+# Core Backend dependencies for Autonomous MirAI Student Policy Advisor
+-r backend/requirements.txt

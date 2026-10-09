@@ -1,0 +1,31 @@
+# Root .gitignore for Autonomous MirAI Student Policy Advisor
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Environment & Secret files
+.env
+.env.*
+!.env.example
+*.env
+
+# Python artifacts
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+
+# Node.js artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/*.tsbuildinfo
+
+# Vector DB persist files
+backend/data/chroma_db/
+backend/data/chroma_db/*
+!backend/data/chroma_db/.gitkeep
