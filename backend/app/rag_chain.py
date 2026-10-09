@@ -166,7 +166,7 @@ class PolicyAdvisorChain:
                 "context": context_str,
                 "question": question,
             })
-            answer_text = raw_answer.strip()
+            answer_text = str(raw_answer).strip()
         except Exception as e:
             logger.error(f"Generation failed: {e}")
             raise GenerationError(f"Failed to generate policy answer: {e}")

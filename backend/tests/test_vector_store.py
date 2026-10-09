@@ -36,6 +36,8 @@ class FakeEmbeddings:
 def test_missing_api_key_raises(temp_chroma_dir, monkeypatch):
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    from app.config import settings
+    monkeypatch.setattr(settings, "GOOGLE_API_KEY", None)
     manager = PolicyVectorStoreManager(
         persist_directory=temp_chroma_dir,
         api_key=None,

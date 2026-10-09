@@ -25,6 +25,64 @@ from app.exceptions import (
 logger = logging.getLogger("mirai.vector_store")
 
 
+from langchain_core.embeddings import Embeddings
+
+
+class ResilientGoogleEmbeddings(Embeddings):
+    """
+    Embeddings wrapper that uses the primary embedding model (e.g. text-embedding-004),
+    and gracefully falls back to models/gemini-embedding-001 if the Google API returns
+    a 404 NOT_FOUND for the primary model.
+    """
+
+    def __init__(
+        self,
+        primary_model: str,
+        fallback_model: str = "models/gemini-embedding-001",
+        api_key: Optional[str] = None,
+    ):
+        self.primary_model = primary_model
+        self.fallback_model = fallback_model
+        self.api_key = api_key
+        self.active_embeddings = GoogleGenerativeAIEmbeddings(
+            model=primary_model,
+            google_api_key=api_key,
+        )
+        self.used_model = primary_model
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        try:
+            return self.active_embeddings.embed_documents(texts)
+        except Exception as e:
+            if ("404" in str(e) or "not found" in str(e).lower()) and self.used_model != self.fallback_model:
+                logger.warning(
+                    f"Embedding model '{self.primary_model}' returned 404. Falling back to '{self.fallback_model}'."
+                )
+                self.active_embeddings = GoogleGenerativeAIEmbeddings(
+                    model=self.fallback_model,
+                    google_api_key=self.api_key,
+                )
+                self.used_model = self.fallback_model
+                return self.active_embeddings.embed_documents(texts)
+            raise
+
+    def embed_query(self, text: str) -> List[float]:
+        try:
+            return self.active_embeddings.embed_query(text)
+        except Exception as e:
+            if ("404" in str(e) or "not found" in str(e).lower()) and self.used_model != self.fallback_model:
+                logger.warning(
+                    f"Embedding model '{self.primary_model}' returned 404. Falling back to '{self.fallback_model}'."
+                )
+                self.active_embeddings = GoogleGenerativeAIEmbeddings(
+                    model=self.fallback_model,
+                    google_api_key=self.api_key,
+                )
+                self.used_model = self.fallback_model
+                return self.active_embeddings.embed_query(text)
+            raise
+
+
 class PolicyVectorStoreManager:
     """
     Manages persistent ChromaDB vector storage for university policy handbooks.
@@ -42,11 +100,11 @@ class PolicyVectorStoreManager:
         self.collection_name = collection_name or settings.CHROMA_COLLECTION_NAME
         self.embedding_model = embedding_model or settings.GOOGLE_EMBEDDING_MODEL
         self.api_key = api_key or settings.GOOGLE_API_KEY
-        self._embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
+        self._embeddings: Optional[Embeddings] = None
         self._vector_store: Optional[Chroma] = None
         self._client: Optional[chromadb.PersistentClient] = None
 
-    def get_embeddings(self) -> GoogleGenerativeAIEmbeddings:
+    def get_embeddings(self) -> Embeddings:
         """
         Returns the configured Google Generative AI embeddings instance.
         Validates API key presence before invocation.
@@ -58,9 +116,10 @@ class PolicyVectorStoreManager:
                     "Google API key is missing. Set GOOGLE_API_KEY in backend/.env to generate embeddings."
                 )
             try:
-                self._embeddings = GoogleGenerativeAIEmbeddings(
-                    model=self.embedding_model,
-                    google_api_key=active_key,
+                self._embeddings = ResilientGoogleEmbeddings(
+                    primary_model=self.embedding_model,
+                    fallback_model="models/gemini-embedding-001",
+                    api_key=active_key,
                 )
             except Exception as e:
                 raise EmbeddingAPIError(f"Failed to initialize Google Generative AI Embeddings: {e}")
@@ -79,7 +138,7 @@ class PolicyVectorStoreManager:
                 raise VectorStoreError(f"Could not open persistent ChromaDB at '{self.persist_directory}': {e}")
         return self._client
 
-    def get_vector_store(self, embeddings: Optional[GoogleGenerativeAIEmbeddings] = None) -> Chroma:
+    def get_vector_store(self, embeddings: Optional[Embeddings] = None) -> Chroma:
         """Returns or creates the LangChain Chroma vector store wrapper."""
         if self._vector_store is None:
             emb = embeddings or self.get_embeddings()

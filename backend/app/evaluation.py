@@ -126,7 +126,14 @@ class RAGEvaluator:
 
         try:
             res = llm.invoke(formatted)
-            content = res.content if hasattr(res, "content") else str(res)
+            raw_content = res.content if hasattr(res, "content") else str(res)
+            if isinstance(raw_content, list):
+                content = "\n".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in raw_content
+                )
+            else:
+                content = str(raw_content)
 
             # Parse score, reasoning, status
             score = 3
